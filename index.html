@@ -1,0 +1,869 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Detective - Factorization Adventure</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto Mono', monospace;
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            /* overflow: hidden; */ /* Removed for mobile scrolling */
+        }
+        .font-detective {
+            font-family: 'Special Elite', cursive;
+        }
+        .screen {
+            display: none;
+            /* position: absolute; */ /* Removed for responsive layout */
+            /* top: 0; left: 0; right: 0; bottom: 0; */
+            width: 100%;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+        .screen.active {
+            display: flex;
+            opacity: 1;
+        }
+        .case-file {
+            background-color: #fdf5e6; /* Manila folder color */
+            color: #333;
+            border: 1px solid #d3c5a8;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.5);
+        }
+        .evidence-tag {
+            background-color: #e0e0e0;
+            color: #111;
+            border-left: 5px solid #c00;
+        }
+        .term-tile {
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .term-tile:hover {
+            transform: scale(1.05);
+            background-color: #4a4a4a;
+        }
+        .drop-zone {
+            border: 2px dashed #888;
+            transition: background-color 0.2s, border-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .drop-zone.drag-over {
+            background-color: #004d00;
+            border-color: #00ff00;
+        }
+        .suspect-pair {
+            cursor: grab;
+            transition: background-color 0.2s;
+        }
+        .suspect-pair:hover {
+            background-color: #5a5a5a;
+        }
+        .suspect-pair.glowing-hint {
+            background-color: #4a4a00;
+            box-shadow: 0 0 10px #ffff00;
+        }
+        .feedback-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: clamp(6rem, 25vw, 10rem); /* Responsive emoji size */
+            pointer-events: none;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: opacity 0.5s, transform 0.5s;
+        }
+        .feedback-overlay.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+        @keyframes stamp {
+            0% { transform: scale(3) rotate(-30deg); opacity: 0; }
+            50% { transform: scale(1) rotate(5deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        .stamp-animation {
+            animation: stamp 0.5s ease-out forwards;
+        }
+        .term-control-btn {
+            background-color: #4a4a4a;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 0 4px;
+            transition: background-color 0.2s;
+            border: 1px solid #666;
+        }
+        .term-control-btn:hover {
+            background-color: #6a6a6a;
+        }
+    </style>
+</head>
+<body class="w-screen min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+    <!-- Container for all screens -->
+    <div id="app-container" class="w-full max-w-7xl relative">
+
+        <!-- SCREEN 1: CASE BRIEFING -->
+        <div id="case-briefing-screen" class="screen flex-col items-center justify-center">
+            <div class="case-file w-full max-w-xl p-6 sm:p-8 rounded-lg">
+                <div class="text-center">
+                    <h1 id="case-title" class="font-detective text-3xl sm:text-4xl mb-2"></h1>
+                    <p id="case-number" class="text-sm text-gray-600 mb-4"></p>
+                </div>
+                <p id="case-narrative" class="text-base sm:text-lg mb-6 text-center"></p>
+                <div class="evidence-tag p-4 rounded-md text-center mb-8">
+                    <p class="text-sm font-bold tracking-widest mb-2">EVIDENCE</p>
+                    <p id="briefing-expression" class="text-3xl sm:text-4xl font-bold"></p>
+                </div>
+                <button onclick="startGame()" class="w-full bg-green-700 hover:bg-green-800 text-white font-bold py-3 px-4 rounded-lg text-xl sm:text-2xl font-detective transition-transform duration-200 hover:scale-105">
+                    Begin Investigation
+                </button>
+            </div>
+        </div>
+
+        <!-- SCREEN 2: INVESTIGATION WORKSPACE -->
+        <div id="investigation-screen" class="screen flex-col items-center justify-center p-1 sm:p-4 bg-gray-800 rounded-xl shadow-2xl border-2 border-gray-600">
+            <!-- Top Panel: Evidence Board -->
+            <div class="w-full p-4 mb-4 bg-gray-900 rounded-lg text-center">
+                <p class="font-detective text-xl mb-2">Evidence Board</p>
+                <div id="evidence-board" class="flex justify-center items-center space-x-2 text-3xl sm:text-5xl font-bold">
+                    <!-- Terms will be injected here -->
+                </div>
+            </div>
+
+            <div class="w-full flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Left Panel: Forensics Lab -->
+                <div class="bg-gray-700 p-4 rounded-lg flex flex-col">
+                    <h2 class="font-detective text-2xl text-center mb-4 border-b-2 border-gray-500 pb-2">Forensics Lab</h2>
+                    <div id="clue-panel" class="flex-1 overflow-y-auto space-y-4">
+                        <p class="text-gray-400 italic text-center">Click on a term from the evidence board to analyze it.</p>
+                    </div>
+                </div>
+
+                <!-- Right Panel: Interrogation Room -->
+                <div class="bg-gray-700 p-4 rounded-lg flex flex-col">
+                    <h2 class="font-detective text-2xl text-center mb-4 border-b-2 border-gray-500 pb-2">Interrogation Room</h2>
+                    <div class="flex-1 flex flex-col items-center justify-center">
+                        <p class="text-lg mb-4">Construct Your Theory:</p>
+                        <div id="interrogation-outline" class="flex flex-col md:flex-row items-center justify-center gap-2 text-xl sm:text-2xl md:text-3xl font-bold">
+                            <!-- Dynamic structure will be injected here -->
+                        </div>
+                        <div id="live-feedback-area" class="mt-6 text-lg sm:text-2xl h-10 text-center transition-colors duration-300"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="feedback-overlay" class="feedback-overlay"></div>
+        </div>
+        
+        <!-- SCREEN 3: CASE CLOSED -->
+        <div id="case-closed-screen" class="screen flex-col items-center justify-center">
+             <div class="case-file w-full max-w-xl p-6 sm:p-8 rounded-lg text-center">
+                <h1 class="font-detective text-5xl sm:text-6xl mb-4 text-red-700 stamp-animation">CASE CLOSED</h1>
+                <div class="mb-6">
+                    <p class="text-sm font-bold tracking-widest mb-1">Evidence:</p>
+                    <p id="closed-expression" class="text-2xl sm:text-3xl font-bold break-all"></p>
+                </div>
+                 <div class="mb-8">
+                    <p class="text-sm font-bold tracking-widest mb-1">Identified Culprits:</p>
+                    <p id="closed-solution" class="text-2xl sm:text-3xl font-bold break-all"></p>
+                </div>
+                 <p class="text-lg mb-6">Excellent work, Detective!</p>
+                <button id="next-case-btn" onclick="loadNextCase()" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-4 rounded-lg text-xl sm:text-2xl font-detective transition-transform duration-200 hover:scale-105">
+                    Proceed to Next Case
+                </button>
+            </div>
+        </div>
+
+        <!-- SCREEN 4: PATTERN DISCOVERY -->
+        <div id="pattern-discovery-screen" class="screen flex-col items-center justify-center bg-black bg-opacity-70">
+            <div class="case-file w-full max-w-2xl p-6 sm:p-8 rounded-lg">
+                <h1 class="font-detective text-3xl sm:text-4xl text-center mb-4">🕵️‍♂️ Time for some deduction...</h1>
+                <p class="text-base sm:text-lg mb-4">Detective, you've cracked a few similar cases. Let's look at the evidence:</p>
+                <div id="pattern-examples" class="bg-gray-200 p-4 rounded mb-6 space-y-2">
+                    <!-- Examples will be injected here -->
+                </div>
+                <p class="text-base sm:text-lg font-bold mb-2">What's the pattern? Describe the connection between the numbers you chose and the polynomial in your notebook.</p>
+                <textarea id="pattern-input" rows="4" class="w-full p-2 border border-gray-400 rounded bg-white text-black text-base sm:text-lg" placeholder="e.g., The two numbers always seem to add up to the middle number and multiply to get the last number."></textarea>
+                <button onclick="savePattern()" class="mt-4 w-full bg-green-700 hover:bg-green-800 text-white font-bold py-3 px-4 rounded-lg text-xl sm:text-2xl font-detective transition-transform duration-200 hover:scale-105">
+                    Add to Notebook
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- DATA ---
+        const caseFiles = [
+            {
+                id: 0,
+                title: "The Fourth Power Puzzle",
+                narrative: "A classic Sophie Germain Identity. It looks simple, but the factors are not obvious. You might need to add and subtract a term to find the pattern.",
+                expression: "x⁴ + x² + 1",
+                solution: ['x²+x+1', 'x²-x+1'],
+                clues: ['x²', 'x', '-x', '1'],
+                patternId: "sophie-germain",
+            },
+            {
+                id: 1,
+                title: "The Difference of Squares",
+                narrative: "A classic case of opposites. One is positive, one is negative. What happens when they clash?",
+                expression: "x² - y²",
+                solution: ['x-y', 'x+y'],
+                clues: ['x', 'y', '-y'],
+                patternId: "difference-of-squares",
+            },
+            {
+                id: 2,
+                title: "The Leading Coefficient",
+                narrative: "This case has a twist. The leading coefficient isn't 1. You'll need to consider factors of both the first and last terms.",
+                expression: "4x² + 7x + 3",
+                coeffs: [4, 7, 3],
+                solution: ['4x+3', 'x+1'],
+                clues: ['x', '4x', 1, 3],
+                patternId: "sum-product-ac",
+            },
+            {
+                id: 3,
+                title: "The Grouping Gambit",
+                narrative: "This case is different. We have four terms to deal with. Look for common factors between pairs.",
+                expression: "x³ + 2x² + 3x + 6",
+                coeffs: [1, 2, 3, 6],
+                solution: ['x+2', 'x²+3'],
+                clues: ['x', 'x²', '2', '3'],
+                patternId: "grouping",
+            },
+            {
+                id: 4,
+                title: "The Midtown Collision",
+                narrative: "A simple collision at the corner of 5th and 6th Avenue. Looks routine, but let's see what the evidence tells us.",
+                expression: "x² + 5x + 6",
+                coeffs: [1, 5, 6],
+                solution: ['x+2', 'x+3'],
+                clues: ['x', 2, 3],
+                patternId: "sum-product",
+            },
+            {
+                id: 5,
+                title: "The Negative Force",
+                narrative: "This one's messy. The collision involved a negative element. Be careful, Detective.",
+                expression: "x² - 2x - 15",
+                coeffs: [1, -2, -15],
+                solution: ['x+3', 'x-5'],
+                clues: ['x', 3, -5],
+                patternId: "sum-product",
+            },
+            {
+                id: 6,
+                title: "The Double Negative",
+                narrative: "Two negatives were involved here. They say two negatives make a positive, let's see if that's true.",
+                expression: "x² - 9x + 20",
+                coeffs: [1, -9, 20],
+                solution: ['x-4', 'x-5'],
+                clues: ['x', -4, -5],
+                patternId: "sum-product",
+            },
+            {
+                id: 7,
+                title: "The Downtown Derby",
+                narrative: "This one happened fast. The numbers are a bit bigger, but the method should be the same.",
+                expression: "x² + 7x + 12",
+                coeffs: [1, 7, 12],
+                solution: ['x+3', 'x+4'],
+                clues: ['x', 3, 4],
+                patternId: "sum-product",
+            }
+        ];
+
+        // --- GAME STATE & USER PROGRESS ---
+        let gameState = {
+            currentScreen: 'briefing',
+            currentCaseIndex: 0,
+            currentCase: null,
+            selectedFactors: [null, null],
+            draggedValue: null,
+        };
+
+        let userProgress = {
+            rank: "Rookie",
+            solvedCaseIds: [],
+            discoveredPatterns: {},
+        };
+
+        // --- DOM ELEMENTS ---
+        const screens = {
+            briefing: document.getElementById('case-briefing-screen'),
+            investigation: document.getElementById('investigation-screen'),
+            caseClosed: document.getElementById('case-closed-screen'),
+            patternDiscovery: document.getElementById('pattern-discovery-screen'),
+        };
+        const dropZone1 = document.getElementById('drop-zone-1');
+        const dropZone2 = document.getElementById('drop-zone-2');
+
+        // --- CORE LOGIC ---
+        
+        function switchScreen(screenName) {
+            Object.values(screens).forEach(screen => screen.classList.remove('active'));
+            if (screens[screenName]) {
+                screens[screenName].classList.add('active');
+                gameState.currentScreen = screenName;
+            }
+        }
+
+        function loadCase(caseData) {
+            gameState.currentCase = caseData;
+            gameState.selectedFactors = [null, null];
+
+            // Briefing Screen
+            document.getElementById('case-title').textContent = caseData.title;
+            document.getElementById('case-number').textContent = `Case #${String(caseData.id).padStart(3, '0')}`;
+            document.getElementById('case-narrative').textContent = caseData.narrative;
+            document.getElementById('briefing-expression').innerHTML = formatExpression(caseData.expression);
+
+            // Investigation Screen
+            renderEvidenceBoard();
+            resetInvestigationUI();
+            
+            // Case Closed Screen
+            document.getElementById('closed-expression').innerHTML = formatExpression(caseData.expression);
+            document.getElementById('closed-solution').textContent = `(${caseData.solution.join(')(')})`;
+
+            switchScreen('briefing');
+        }
+
+        function startGame() {
+            switchScreen('investigation');
+        }
+        
+        function formatExpression(expr) {
+            return expr.replace(/x\^2/g, "x²").replace(/\+/g, " + ").replace(/-/g, " - ");
+        }
+
+        function renderEvidenceBoard() {
+            const board = document.getElementById('evidence-board');
+            const expr = gameState.currentCase.expression;
+            board.innerHTML = `<div class="term-tile p-2 rounded-lg" onclick="showClues()">${formatExpression(expr)}</div>`;
+        }
+
+        function showClues() {
+            const cluePanel = document.getElementById('clue-panel');
+            const { clues } = gameState.currentCase;
+            cluePanel.innerHTML = ''; 
+
+            let clueHTML = `<div class="bg-gray-800 p-4 rounded-lg">
+                <h3 class="font-bold text-xl mb-2">Available Clues</h3>
+                <p class="text-sm text-gray-300 mb-3">Drag these suspects to the Interrogation Room.</p>
+                <div class="flex flex-wrap gap-2">`;
+            
+            clues.forEach(clue => {
+                const isString = typeof clue === 'string';
+                const displayValue = isString ? `'${clue}'` : clue;
+                clueHTML += `
+                    <div draggable="true" ondragstart="handleDragStart(event, ${displayValue})" class="suspect-pair p-2 bg-gray-900 rounded">
+                        <span>${clue}</span>
+                    </div>`;
+            });
+
+            clueHTML += `</div></div>`;
+            cluePanel.innerHTML = clueHTML;
+        }
+        
+        function getFactorPairs(num) {
+            const pairs = [];
+            const absNum = Math.abs(num);
+            for (let i = 1; i <= Math.sqrt(absNum); i++) {
+                if (absNum % i === 0) {
+                    const j = absNum / i;
+                    pairs.push([i, j]);
+                }
+            }
+            // Add negative pairs
+            const finalPairs = [];
+            pairs.forEach(([p1,p2]) => {
+                if (num > 0) {
+                    finalPairs.push([p1, p2]);
+                    finalPairs.push([-p1, -p2]);
+                } else {
+                    finalPairs.push([-p1, p2]);
+                    finalPairs.push([p1, -p2]);
+                }
+            });
+            return finalPairs;
+        }
+
+        function addTerm(buttonEl) {
+            const factorGroup = buttonEl.closest('.factor-group');
+            const termsContainer = factorGroup.querySelector('.terms-container');
+            
+            const operator = document.createElement('span');
+            operator.className = 'op mx-0.5 text-2xl';
+            operator.textContent = '+';
+
+            const newDropZone = document.createElement('div');
+            newDropZone.className = 'drop-zone w-10 h-10 sm:w-12 sm:h-12 rounded-lg';
+            newDropZone.textContent = '?';
+
+            termsContainer.appendChild(operator);
+            termsContainer.appendChild(newDropZone);
+            
+            updateDropZoneListeners(false); // Don't reset content
+            validateSolution();
+        }
+
+        function removeTerm(buttonEl) {
+            const factorGroup = buttonEl.closest('.factor-group');
+            const termsContainer = factorGroup.querySelector('.terms-container');
+            const dropZonesInGroup = Array.from(termsContainer.querySelectorAll('.drop-zone'));
+            
+            let targetToRemove = -1;
+
+            // Find the last empty drop zone to remove
+            for (let i = dropZonesInGroup.length - 1; i >= 0; i--) {
+                if (dropZonesInGroup[i].textContent === '?') {
+                    targetToRemove = i;
+                    break;
+                }
+            }
+
+            // If no empty zone, find the last filled one (but don't remove the only one)
+            if (targetToRemove === -1 && dropZonesInGroup.length > 1) {
+                targetToRemove = dropZonesInGroup.length - 1;
+            }
+            
+            if (targetToRemove !== -1) {
+                // Remove the drop zone and its preceding operator
+                const operator = dropZonesInGroup[targetToRemove].previousElementSibling;
+                termsContainer.removeChild(dropZonesInGroup[targetToRemove]);
+                if (operator && operator.classList.contains('op')) {
+                    termsContainer.removeChild(operator);
+                }
+                
+                updateDropZoneListeners(false); // Don't reset content
+                validateSolution();
+            }
+        }
+
+        function updateDropZoneListeners(resetContent = true) {
+            const dropZones = document.querySelectorAll('.drop-zone');
+            const newSelectedFactors = [];
+
+            dropZones.forEach((zone, index) => {
+                // Preserve existing content if not resetting
+                if (!resetContent && zone.textContent !== '?') {
+                    const value = isNaN(zone.textContent) ? zone.textContent : Number(zone.textContent);
+                    newSelectedFactors[index] = value;
+                } else {
+                    newSelectedFactors[index] = null;
+                }
+
+                if (resetContent) {
+                    zone.textContent = '?';
+                }
+
+                // Remove old listeners to prevent duplicates
+                const newZone = zone.cloneNode(true);
+                zone.parentNode.replaceChild(newZone, zone);
+
+                newZone.addEventListener('dragover', handleDragOver);
+                newZone.addEventListener('dragleave', handleDragLeave);
+                newZone.addEventListener('drop', (e) => handleDrop(e, index));
+            });
+
+            gameState.selectedFactors = newSelectedFactors;
+        }
+
+        function resetInvestigationUI() {
+            document.getElementById('clue-panel').innerHTML = `<p class="text-gray-400 italic text-center">Click on the evidence board to see available clues.</p>`;
+            document.getElementById('live-feedback-area').textContent = '';
+            document.getElementById('interrogation-outline').innerHTML = `
+                <div class="factor-group flex items-center p-1 sm:p-2 bg-gray-800 rounded-lg">
+                    <span>(</span>
+                    <div class="terms-container flex items-center flex-wrap gap-0.5">
+                        <div class="drop-zone w-10 h-10 sm:w-12 sm:h-12 rounded-lg">?</div>
+                    </div>
+                    <span>)</span>
+                    <div class="flex flex-col ml-1 space-y-1">
+                        <button class="term-control-btn text-base" onclick="addTerm(this)">+</button>
+                        <button class="term-control-btn text-base" onclick="removeTerm(this)">-</button>
+                    </div>
+                </div>
+                <span class="my-2 md:my-0 text-2xl sm:text-3xl">*</span>
+                <div class="factor-group flex items-center p-1 sm:p-2 bg-gray-800 rounded-lg">
+                    <span>(</span>
+                    <div class="terms-container flex items-center flex-wrap gap-0.5">
+                        <div class="drop-zone w-10 h-10 sm:w-12 sm:h-12 rounded-lg">?</div>
+                    </div>
+                    <span>)</span>
+                    <div class="flex flex-col ml-1 space-y-1">
+                        <button class="term-control-btn text-base" onclick="addTerm(this)">+</button>
+                        <button class="term-control-btn text-base" onclick="removeTerm(this)">-</button>
+                    </div>
+                </div>
+            `;
+            
+            updateDropZoneListeners(true); // Reset content on new case
+            
+            document.getElementById('feedback-overlay').innerHTML = '';
+            document.getElementById('feedback-overlay').classList.remove('show');
+        }
+
+        // --- DRAG & DROP LOGIC ---
+        function handleDragStart(event, value) {
+            gameState.draggedValue = value;
+            event.dataTransfer.effectAllowed = 'move';
+        }
+        
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.target.classList.add('drag-over');
+        }
+        
+        function handleDragLeave(event) {
+            event.target.classList.remove('drag-over');
+        }
+
+        function handleDrop(event, zoneIndex) {
+            event.preventDefault();
+            const dropZone = event.target.closest('.drop-zone');
+            if (!dropZone) return;
+
+            dropZone.classList.remove('drag-over');
+            
+            if (gameState.draggedValue !== null) {
+                // Convert to number if it's a numeric string
+                const value = isNaN(gameState.draggedValue) ? gameState.draggedValue : Number(gameState.draggedValue);
+                gameState.selectedFactors[zoneIndex] = value;
+                dropZone.textContent = gameState.draggedValue;
+                gameState.draggedValue = null;
+                validateSolution();
+            }
+        }
+
+
+        // --- VALIDATION & PROGRESSION ---
+
+        function fromSuperscript(sup) {
+            const superscriptMap = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9' };
+            return Array.from(sup).map(char => superscriptMap[char] || char).join('');
+        }
+
+        /**
+         * Parses an array of terms (e.g., ['x', 'y', 2]) into a standardized polynomial representation.
+         * A polynomial is represented as a Map where keys are term strings (e.g., "x:1,y:1")
+         * and values are their coefficients.
+         */
+        function parseFactor(terms) {
+            const poly = new Map();
+            terms.forEach(term => {
+                if (term === null) return;
+
+                if (typeof term === 'number') {
+                    const key = 'const';
+                    poly.set(key, (poly.get(key) || 0) + term);
+                } else if (typeof term === 'string') {
+                    const match = term.match(/^(-?\d*)?([a-zA-Z])(.*)?$/);
+                    if (!match) return;
+
+                    let coeffPart = match[1];
+                    let variable = match[2];
+                    let powerPart = match[3] || '1';
+
+                    let coeff = 1;
+                    if (coeffPart === '-') coeff = -1;
+                    else if (coeffPart) coeff = parseInt(coeffPart, 10);
+                    
+                    let power = 1;
+                    const normalPower = fromSuperscript(powerPart);
+                    if (normalPower && !isNaN(normalPower)) {
+                        power = parseInt(normalPower, 10);
+                    }
+                    
+                    const key = `${variable}:${power}`;
+                    poly.set(key, (poly.get(key) || 0) + coeff);
+                }
+            });
+            return poly;
+        }
+
+        /**
+         * Multiplies two multivariate polynomials represented as Maps.
+         */
+        function multiplyPolynomials(poly1, poly2) {
+            const result = new Map();
+            if (poly1.size === 0) return poly2;
+            if (poly2.size === 0) return poly1;
+
+            for (const [term1, coeff1] of poly1.entries()) {
+                for (const [term2, coeff2] of poly2.entries()) {
+                    const newCoeff = coeff1 * coeff2;
+                    const newTerms = new Map();
+
+                    // Combine terms from term1
+                    if (term1 !== 'const') {
+                        term1.split(',').forEach(t => {
+                            const [variable, power] = t.split(':');
+                            newTerms.set(variable, (newTerms.get(variable) || 0) + parseInt(power));
+                        });
+                    }
+                    
+                    // Combine terms from term2
+                    if (term2 !== 'const') {
+                        term2.split(',').forEach(t => {
+                            const [variable, power] = t.split(':');
+                            newTerms.set(variable, (newTerms.get(variable) || 0) + parseInt(power));
+                        });
+                    }
+
+                    let newKey;
+                    if (newTerms.size === 0) {
+                        newKey = 'const';
+                    } else {
+                        newKey = Array.from(newTerms.entries())
+                            .sort(([varA], [varB]) => varA.localeCompare(varB))
+                            .map(([variable, power]) => `${variable}:${power}`)
+                            .join(',');
+                    }
+                    
+                    result.set(newKey, (result.get(newKey) || 0) + newCoeff);
+                }
+            }
+            return result;
+        }
+
+        /**
+         * Converts a polynomial Map back into a readable string expression.
+         */
+        function polyMapToString(poly) {
+            if (poly.size === 0) return '0';
+
+            const termStrings = [];
+            const sortedTerms = Array.from(poly.entries()).sort(([keyA], [keyB]) => {
+                // Simple sort: constants last, then alphabetical
+                if (keyA === 'const') return 1;
+                if (keyB === 'const') return -1;
+                return keyA.localeCompare(keyB);
+            });
+
+            sortedTerms.forEach(([term, coeff]) => {
+                if (coeff === 0) return;
+                
+                let termStr = '';
+                if (term === 'const') {
+                    termStr = Math.abs(coeff).toString();
+                } else {
+                    const absCoeff = Math.abs(coeff);
+                    if (absCoeff !== 1 || term.length === 0) { // Show coeff if it's not 1, or if it's a constant term
+                        termStr += absCoeff;
+                    }
+                    term.split(',').forEach(t => {
+                        const [variable, power] = t.split(':');
+                        termStr += variable;
+                        if (power > 1) {
+                            termStr += `<sup>${power}</sup>`;
+                        }
+                    });
+                }
+                
+                if (termStrings.length > 0) {
+                    termStrings.push(coeff > 0 ? ' + ' : ' - ');
+                } else if (coeff < 0) {
+                    termStrings.push('-');
+                }
+                termStrings.push(termStr);
+            });
+
+            return termStrings.join('');
+        }
+
+        function expressionToPolyMap(expr) {
+            const poly = new Map();
+            
+            // Convert all superscripts in the expression to ^ notation first
+            let exprWithCaret = expr.replace(/([\u00B2\u00B3\u00B9\u2070-\u2079]+)/g, (match) => `^${fromSuperscript(match)}`);
+            exprWithCaret = exprWithCaret.replace(/([a-zA-Z])(?!\^)/g, '$1^1'); // Add ^1 to variables without powers
+
+            // Normalize expression: remove whitespace, handle minus signs
+            const normalizedExpr = exprWithCaret.replace(/\s/g, '').replace(/-/g, '+-');
+            const terms = normalizedExpr.split('+').filter(t => t);
+
+            terms.forEach(term => {
+                const match = term.match(/(-?\d*)?([a-zA-Z]+)(\^(\d+))?/);
+                
+                if (match) { // Term with variables
+                    let coeff = parseInt(match[1] || '1', 10);
+                    if (match[1] === '-') coeff = -1;
+
+                    const variables = match[2];
+                    const power = parseInt(match[4] || '1', 10);
+                    
+                    const key = `${variables}:${power}`;
+                    poly.set(key, (poly.get(key) || 0) + coeff);
+
+                } else { // Constant term
+                    const coeff = parseInt(term, 10);
+                    if (!isNaN(coeff)) {
+                        poly.set('const', (poly.get('const') || 0) + coeff);
+                    }
+                }
+            });
+            return poly;
+        }
+
+        function comparePolyMaps(map1, map2) {
+            const cleanMap = (m) => new Map([...m].filter(([, v]) => v !== 0));
+
+            const cleanedMap1 = cleanMap(map1);
+            const cleanedMap2 = cleanMap(map2);
+
+            if (cleanedMap1.size !== cleanedMap2.size) return false;
+            
+            for (const [key, val] of cleanedMap1) {
+                if (cleanedMap2.get(key) !== val) return false;
+            }
+            return true;
+        }
+
+        function validateSolution() {
+            const { expression } = gameState.currentCase;
+            const feedbackArea = document.getElementById('live-feedback-area');
+            const feedbackOverlay = document.getElementById('feedback-overlay');
+            
+            let isCorrect = false;
+
+            // --- Build expressions from drop zones ---
+            const factorGroups = document.querySelectorAll('.factor-group');
+            const factors = [];
+            let globalDropZoneIndex = 0;
+            
+            factorGroups.forEach(group => {
+                const terms = [];
+                const dropZonesInGroup = group.querySelectorAll('.drop-zone');
+                dropZonesInGroup.forEach(zone => {
+                    terms.push(gameState.selectedFactors[globalDropZoneIndex]);
+                    globalDropZoneIndex++;
+                });
+                factors.push(terms);
+            });
+
+            // --- Perform validation ---
+            if (factors.some(f => f.some(t => t === null))) {
+                feedbackArea.innerHTML = '';
+                return;
+            }
+
+            try {
+                const polyFactors = factors.map(parseFactor);
+                const resultPoly = polyFactors.reduce((acc, poly) => multiplyPolynomials(acc, poly), new Map([['const', 1]]));
+                
+                const generatedExpression = polyMapToString(resultPoly);
+                feedbackArea.innerHTML = `Your theory: ${formatExpression(generatedExpression)}`;
+
+                const targetPoly = expressionToPolyMap(expression);
+                isCorrect = comparePolyMaps(resultPoly, targetPoly);
+
+            } catch (e) {
+                console.error("Validation error:", e);
+                feedbackArea.innerHTML = 'Could not compute the product of your theory.';
+                isCorrect = false;
+            }
+            
+            feedbackArea.classList.remove('text-green-400', 'text-red-400');
+            if(isCorrect) {
+                feedbackArea.classList.add('green-400');
+                feedbackOverlay.innerHTML = '✅';
+                feedbackOverlay.classList.add('show');
+                setTimeout(() => {
+                    completeCase();
+                }, 1500);
+            } else {
+                feedbackArea.classList.add('red-400');
+                feedbackOverlay.innerHTML = '❌';
+                feedbackOverlay.classList.add('show');
+                setTimeout(() => {
+                    feedbackOverlay.classList.remove('show');
+                }, 1000);
+            }
+        }
+
+        function completeCase() {
+            userProgress.solvedCaseIds.push(gameState.currentCase.id);
+            
+            if (checkForPatternDiscovery()) {
+                setupPatternDiscovery();
+                switchScreen('patternDiscovery');
+            } else {
+                switchScreen('caseClosed');
+            }
+        }
+
+        function checkForPatternDiscovery() {
+             const sumProductCasesSolved = caseFiles.filter(c => 
+                c.patternId === 'sum-product' && userProgress.solvedCaseIds.includes(c.id)
+            ).length;
+
+            return sumProductCasesSolved >= 2 && !userProgress.discoveredPatterns['sum-product'];
+        }
+
+        function setupPatternDiscovery() {
+            const examplesContainer = document.getElementById('pattern-examples');
+            examplesContainer.innerHTML = '';
+            const solvedCases = caseFiles.filter(c => userProgress.solvedCaseIds.includes(c.id) && c.patternId === 'sum-product');
+            
+            solvedCases.forEach(c => {
+                const solution = `(${c.solution.join(')(')})`;
+                examplesContainer.innerHTML += `
+                    <p class="text-gray-700"><span class="font-bold">${formatExpression(c.expression)}</span> → You found the factors <span class="font-bold">${solution}</span>.</p>
+                `;
+            });
+        }
+
+        function savePattern() {
+            const userInput = document.getElementById('pattern-input').value;
+            if(userInput.trim().length > 10) {
+                userProgress.discoveredPatterns['sum-product'] = userInput;
+                switchScreen('caseClosed');
+            } else {
+                alert("Please describe the pattern in a bit more detail for your notebook!");
+            }
+        }
+
+        function loadNextCase() {
+            gameState.currentCaseIndex++;
+            if (gameState.currentCaseIndex < caseFiles.length) {
+                loadCase(caseFiles[gameState.currentCaseIndex]);
+            } else {
+                alert("You've solved all the available cases! Congratulations, Detective!");
+                // Reset for replayability
+                gameState.currentCaseIndex = 0;
+                userProgress.solvedCaseIds = [];
+                userProgress.discoveredPatterns = {};
+                loadCase(caseFiles[0]);
+            }
+        }
+
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            loadCase(caseFiles[gameState.currentCaseIndex]);
+        };
+
+    </script>
+</body>
+</html>
