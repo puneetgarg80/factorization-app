@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -42,11 +41,11 @@
             color: #111;
             border-left: 5px solid #c00;
         }
-        .term-tile {
+        .term-tile, .inspection-tool {
             cursor: pointer;
             transition: transform 0.2s, background-color 0.2s;
         }
-        .term-tile:hover {
+        .term-tile:hover, .inspection-tool:hover {
             transform: scale(1.05);
             background-color: #4a4a4a;
         }
@@ -157,8 +156,11 @@
         <div id="investigation-screen" class="screen flex-col items-center justify-center p-1 sm:p-4 bg-gray-800 rounded-xl shadow-2xl border-2 border-gray-600">
             <!-- Top Panel: Evidence Board -->
             <div class="w-full p-4 mb-4 bg-gray-900 rounded-lg text-center">
-                <p class="font-detective text-xl mb-2">Evidence Board</p>
-                <div id="evidence-board" class="flex justify-center items-center space-x-2 text-3xl sm:text-5xl font-bold">
+                <div class="flex justify-center items-center space-x-4">
+                    <p class="font-detective text-xl">Evidence Board</p>
+                    <div title="Inspect Evidence" class="inspection-tool p-2 rounded-lg text-2xl" onclick="inspectEvidence()">🔬</div>
+                </div>
+                <div id="evidence-board" class="flex justify-center items-center space-x-2 text-3xl sm:text-5xl font-bold mt-2">
                     <!-- Terms will be injected here -->
                 </div>
             </div>
@@ -168,7 +170,7 @@
                 <div class="bg-gray-700 p-4 rounded-lg flex flex-col">
                     <h2 class="font-detective text-2xl text-center mb-4 border-b-2 border-gray-500 pb-2">Forensics Lab</h2>
                     <div id="clue-panel" class="flex-1 overflow-y-auto space-y-4">
-                        <p class="text-gray-400 italic text-center">Click on a term from the evidence board to analyze it.</p>
+                        <p class="text-gray-400 italic text-center">Click on the evidence or the inspection tool 🔬 to begin.</p>
                     </div>
                 </div>
 
@@ -379,7 +381,7 @@
         }
         
         function formatExpression(expr) {
-            return expr.replace(/x\^(\d)/g, "x<sup>$1</sup>").replace(/x(\d)/g, "x<sup>$1</sup>").replace(/x\²/g, "x²").replace(/\+/g, " + ").replace(/-/g, " - ");
+            return expr.replace(/x\^(\d)/g, "x<sup>$1</sup>").replace(/x(\d)/g, "x<sup>$1</sup>").replace(/x\²/g, "x²").replace(/x\³/g, "x³").replace(/x\⁴/g, "x⁴").replace(/\+/g, " + ").replace(/-/g, " - ");
         }
 
         function renderEvidenceBoard() {
@@ -409,6 +411,82 @@
 
             clueHTML += `</div></div>`;
             cluePanel.innerHTML = clueHTML;
+        }
+
+        function inspectEvidence() {
+            const cluePanel = document.getElementById('clue-panel');
+            const { expression } = gameState.currentCase;
+            
+            // Normalize expression to easily split into terms
+            const terms = expression.replace(/ - /g, ' + -').split(' + ');
+            
+            let inspectionHTML = `<div class="bg-gray-800 p-4 rounded-lg">
+                <h3 class="font-bold text-xl mb-2">Inspection Results</h3>
+                <div class="space-y-3">`;
+
+            terms.forEach(term => {
+                const match = term.match(/(-?\d*)?([a-zA-Z])?(\^|²|³|⁴)?(\d)?/);
+                if (!match) return;
+
+                let coeffPart = match[1];
+                let variable = match[2] || '';
+                let powerSymbol = match[3] || '';
+                let powerNum = match[4] || '';
+                
+                let coeff = 1;
+                if (coeffPart === '-') coeff = -1;
+                else if (coeffPart) coeff = parseInt(coeffPart, 10);
+                
+                let power = 1;
+                if (variable) {
+                    if (powerSymbol === '^') power = parseInt(powerNum, 10);
+                    else if (powerSymbol) power = fromSuperscript(powerSymbol);
+                } else {
+                    power = 0; // It's a constant
+                }
+
+                const numericFactors = getPrimeFactors(coeff);
+                const variableFactors = [];
+                for(let i=0; i < power; i++) {
+                    variableFactors.push(variable);
+                }
+                
+                const allFactors = [...numericFactors, ...variableFactors];
+                if (allFactors.length === 0 && coeff !== 0) allFactors.push(coeff); // for constants like 1
+                if (allFactors.length === 1 && Math.abs(allFactors[0]) === 1 && variableFactors.length > 0) {
+                    allFactors.shift(); // remove 1 or -1 if there are variables
+                    if (coeff < 0) allFactors.unshift(-1);
+                }
+
+
+                inspectionHTML += `
+                    <div class="p-2 bg-gray-900 rounded">
+                        <span class="font-bold text-lg">${formatExpression(term)}</span> &rarr; <span class="text-yellow-300">${allFactors.join(' &middot; ')}</span>
+                    </div>
+                `;
+            });
+            
+            inspectionHTML += `</div></div>`;
+            cluePanel.innerHTML = inspectionHTML;
+        }
+
+        function getPrimeFactors(num) {
+            const factors = [];
+            let n = Math.abs(num);
+
+            if (num < 0) factors.push(-1);
+            if (n === 1 && num > 0) return [1];
+            
+            let divisor = 2;
+            while (n >= 2) {
+                if (n % divisor === 0) {
+                    factors.push(divisor);
+                    n = n / divisor;
+                } else {
+                    divisor++;
+                }
+            }
+            return factors.length > 0 ? factors : [num];
         }
 
         function addTerm(buttonEl) {
@@ -500,7 +578,7 @@
         }
 
         function resetInvestigationUI() {
-            document.getElementById('clue-panel').innerHTML = `<p class="text-gray-400 italic text-center">Click on the evidence board to see available clues.</p>`;
+            document.getElementById('clue-panel').innerHTML = `<p class="text-gray-400 italic text-center">Click on the evidence or the inspection tool 🔬 to begin.</p>`;
             document.getElementById('live-feedback-area').innerHTML = '';
             document.getElementById('interrogation-outline').innerHTML = `
                 <div class="factor-group flex items-center p-1 sm:p-2 bg-gray-800 rounded-lg">
@@ -653,8 +731,8 @@
         // --- VALIDATION & PROGRESSION ---
 
         function fromSuperscript(sup) {
-            const superscriptMap = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9' };
-            return Array.from(sup).map(char => superscriptMap[char] || char).join('');
+            const superscriptMap = { '⁰': 0, '¹': 1, '²': 2, '³': 3, '⁴': 4, '⁵': 5, '⁶': 6, '⁷': 7, '⁸': 8, '⁹': 9 };
+            return superscriptMap[sup] || 1;
         }
 
         function parseFactor(terms) {
@@ -667,12 +745,12 @@
                     poly.set(key, (poly.get(key) || 0) + term);
                 } else if (typeof term === 'string') {
                     let expr = term.toString();
-                    const match = expr.match(/^(-?\d*)?([a-zA-Z])(\d+|²|³|⁴)?$/);
+                    const match = expr.match(/^(-?\d*)?([a-zA-Z])(\^(\d)|²|³|⁴)?$/);
                     if (!match) return;
-
+                    
                     let coeffPart = match[1];
                     let variable = match[2];
-                    let powerPart = match[3] ? fromSuperscript(match[3]) : '1';
+                    let powerPart = match[3] ? (match[4] || fromSuperscript(match[3])) : '1';
 
                     let coeff = 1;
                     if (coeffPart === '-') coeff = -1;
@@ -755,8 +833,8 @@
                 if (term === 'const') {
                     termStr += absCoeff.toString();
                 } else {
-                    if (absCoeff !== 1) {
-                        termStr += absCoeff;
+                    if (absCoeff !== 1 || term.length === 0) { // Show coeff if 1 and no variable
+                         if (absCoeff !== 1 || term.split(':')[0].length === 0) termStr += absCoeff;
                     }
                     term.split(',').forEach(t => {
                         const [variable, power] = t.split(':');
@@ -839,10 +917,8 @@
             
             if (coeff < 0) termStr += '-';
 
-            if (absCoeff !== 1) {
-                termStr += absCoeff;
-            } else if (term.length === 0) { 
-                termStr += '1';
+            if (absCoeff !== 1 || term.length === 0) {
+                if(absCoeff !== 1 || term.split(':')[0].length === 0) termStr += absCoeff;
             }
             
             term.split(',').forEach(t => {
