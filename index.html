@@ -64,6 +64,8 @@
         .suspect-pair {
             cursor: grab;
             transition: background-color 0.2s;
+            user-select: none; /* Prevent text selection on mobile */
+            -webkit-user-select: none;
         }
         .suspect-pair:hover {
             background-color: #5a5a5a;
@@ -113,6 +115,18 @@
         }
         .term-control-btn:hover {
             background-color: #6a6a6a;
+        }
+        /* Styles for mobile drag-and-drop */
+        .suspect-pair.dragging {
+            opacity: 0.4;
+        }
+        .ghost-drag {
+            position: absolute;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.9;
+            transform: rotate(5deg) scale(1.1);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
         }
     </style>
 </head>
@@ -308,6 +322,14 @@
             discoveredPatterns: {},
         };
 
+        // State for touch-based drag/drop
+        let touchState = {
+            isDragging: false,
+            ghostElement: null,
+            draggedElement: null,
+            lastTarget: null,
+        };
+
         // --- DOM ELEMENTS ---
         const screens = {
             briefing: document.getElementById('case-briefing-screen'),
@@ -377,7 +399,7 @@
                 const isString = typeof clue === 'string';
                 const displayValue = isString ? `'${clue}'` : clue;
                 clueHTML += `
-                    <div draggable="true" ondragstart="handleDragStart(event, ${displayValue})" class="suspect-pair p-2 bg-gray-900 rounded">
+                    <div draggable="true" ondragstart="handleDragStart(event, ${displayValue})" ontouchstart="handleTouchStart(event, ${displayValue}, this)" class="suspect-pair p-2 bg-gray-900 rounded">
                         <span>${clue}</span>
                     </div>`;
             });
@@ -482,6 +504,9 @@
                 const newZone = zone.cloneNode(true);
                 zone.parentNode.replaceChild(newZone, zone);
 
+                // Add data attribute for touch handling
+                newZone.dataset.zoneIndex = index;
+
                 newZone.addEventListener('dragover', handleDragOver);
                 newZone.addEventListener('dragleave', handleDragLeave);
                 newZone.addEventListener('drop', (e) => handleDrop(e, index));
@@ -526,6 +551,7 @@
         }
 
         // --- DRAG & DROP LOGIC ---
+        // Desktop D&D
         function handleDragStart(event, value) {
             gameState.draggedValue = value;
             event.dataTransfer.effectAllowed = 'move';
@@ -548,13 +574,95 @@
             dropZone.classList.remove('drag-over');
             
             if (gameState.draggedValue !== null) {
-                // Convert to number if it's a numeric string
                 const value = isNaN(gameState.draggedValue) ? gameState.draggedValue : Number(gameState.draggedValue);
                 gameState.selectedFactors[zoneIndex] = value;
                 dropZone.textContent = gameState.draggedValue;
                 gameState.draggedValue = null;
                 validateSolution();
             }
+        }
+
+        // Mobile/Touch D&D
+        function handleTouchStart(event, value, element) {
+            if (event.cancelable) event.preventDefault();
+            
+            touchState.isDragging = true;
+            touchState.draggedElement = element;
+            gameState.draggedValue = value;
+
+            element.classList.add('dragging');
+
+            touchState.ghostElement = element.cloneNode(true);
+            touchState.ghostElement.classList.add('ghost-drag');
+            document.body.appendChild(touchState.ghostElement);
+
+            const touch = event.touches[0];
+            const rect = element.getBoundingClientRect();
+            touchState.ghostElement.style.width = `${rect.width}px`;
+            touchState.ghostElement.style.height = `${rect.height}px`;
+            touchState.ghostElement.style.left = `${touch.pageX - rect.width / 2}px`;
+            touchState.ghostElement.style.top = `${touch.pageY - rect.height / 2}px`;
+            
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd);
+            document.addEventListener('touchcancel', handleTouchEnd);
+        }
+
+        function handleTouchMove(event) {
+            if (!touchState.isDragging) return;
+            if (event.cancelable) event.preventDefault();
+
+            const touch = event.touches[0];
+            
+            const ghostRect = touchState.ghostElement.getBoundingClientRect();
+            touchState.ghostElement.style.left = `${touch.pageX - ghostRect.width / 2}px`;
+            touchState.ghostElement.style.top = `${touch.pageY - ghostRect.height / 2}px`;
+
+            touchState.ghostElement.style.display = 'none';
+            const elementUnder = document.elementFromPoint(touch.clientX, touch.clientY);
+            touchState.ghostElement.style.display = '';
+
+            const dropZone = elementUnder ? elementUnder.closest('.drop-zone') : null;
+
+            if (touchState.lastTarget && touchState.lastTarget !== dropZone) {
+                touchState.lastTarget.classList.remove('drag-over');
+            }
+
+            if (dropZone) {
+                dropZone.classList.add('drag-over');
+            }
+            touchState.lastTarget = dropZone;
+        }
+
+        function handleTouchEnd(event) {
+            if (!touchState.isDragging) return;
+
+            if (touchState.lastTarget) {
+                touchState.lastTarget.classList.remove('drag-over');
+                const zoneIndex = parseInt(touchState.lastTarget.dataset.zoneIndex, 10);
+
+                if (!isNaN(zoneIndex) && gameState.draggedValue !== null) {
+                    const value = isNaN(gameState.draggedValue) ? gameState.draggedValue : Number(gameState.draggedValue);
+                    gameState.selectedFactors[zoneIndex] = value;
+                    touchState.lastTarget.textContent = gameState.draggedValue;
+                    validateSolution();
+                }
+            }
+
+            if(touchState.draggedElement) touchState.draggedElement.classList.remove('dragging');
+            if(touchState.ghostElement && touchState.ghostElement.parentNode) {
+                document.body.removeChild(touchState.ghostElement);
+            }
+            
+            document.removeEventListener('touchmove', handleTouchMove);
+            document.removeEventListener('touchend', handleTouchEnd);
+            document.removeEventListener('touchcancel', handleTouchEnd);
+
+            touchState.isDragging = false;
+            touchState.ghostElement = null;
+            touchState.draggedElement = null;
+            touchState.lastTarget = null;
+            gameState.draggedValue = null;
         }
 
 
