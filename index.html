@@ -180,7 +180,10 @@
                         <div id="interrogation-outline" class="flex flex-col md:flex-row items-center justify-center gap-2 text-xl sm:text-2xl md:text-3xl font-bold">
                             <!-- Dynamic structure will be injected here -->
                         </div>
-                        <div id="live-feedback-area" class="mt-6 text-lg sm:text-2xl h-10 text-center transition-colors duration-300"></div>
+                        <div id="live-feedback-area" class="mt-6 p-3 bg-gray-800 rounded-lg w-full max-w-md text-base text-left transition-colors duration-300 min-h-[6rem] overflow-y-auto"></div>
+                        <button id="validate-btn" onclick="validateSolution()" class="mt-4 w-full max-w-sm bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-lg font-detective transition-transform duration-200 hover:scale-105 disabled:bg-gray-500 disabled:cursor-not-allowed disabled:transform-none" disabled>
+                            Validate Theory
+                        </button>
                     </div>
                 </div>
             </div>
@@ -376,7 +379,7 @@
         }
         
         function formatExpression(expr) {
-            return expr.replace(/x\^2/g, "x²").replace(/\+/g, " + ").replace(/-/g, " - ");
+            return expr.replace(/x\^(\d)/g, "x<sup>$1</sup>").replace(/x(\d)/g, "x<sup>$1</sup>").replace(/x\²/g, "x²").replace(/\+/g, " + ").replace(/-/g, " - ");
         }
 
         function renderEvidenceBoard() {
@@ -400,35 +403,12 @@
                 const displayValue = isString ? `'${clue}'` : clue;
                 clueHTML += `
                     <div draggable="true" ondragstart="handleDragStart(event, ${displayValue})" ontouchstart="handleTouchStart(event, ${displayValue}, this)" class="suspect-pair p-2 bg-gray-900 rounded">
-                        <span>${clue}</span>
+                        <span>${formatExpression(clue.toString())}</span>
                     </div>`;
             });
 
             clueHTML += `</div></div>`;
             cluePanel.innerHTML = clueHTML;
-        }
-        
-        function getFactorPairs(num) {
-            const pairs = [];
-            const absNum = Math.abs(num);
-            for (let i = 1; i <= Math.sqrt(absNum); i++) {
-                if (absNum % i === 0) {
-                    const j = absNum / i;
-                    pairs.push([i, j]);
-                }
-            }
-            // Add negative pairs
-            const finalPairs = [];
-            pairs.forEach(([p1,p2]) => {
-                if (num > 0) {
-                    finalPairs.push([p1, p2]);
-                    finalPairs.push([-p1, -p2]);
-                } else {
-                    finalPairs.push([-p1, p2]);
-                    finalPairs.push([p1, -p2]);
-                }
-            });
-            return finalPairs;
         }
 
         function addTerm(buttonEl) {
@@ -447,7 +427,6 @@
             termsContainer.appendChild(newDropZone);
             
             updateDropZoneListeners(false); // Don't reset content
-            validateSolution();
         }
 
         function removeTerm(buttonEl) {
@@ -479,8 +458,12 @@
                 }
                 
                 updateDropZoneListeners(false); // Don't reset content
-                validateSolution();
             }
+        }
+
+        function checkAllFactorsFilled() {
+            const allFilled = gameState.selectedFactors.every(factor => factor !== null);
+            document.getElementById('validate-btn').disabled = !allFilled;
         }
 
         function updateDropZoneListeners(resetContent = true) {
@@ -513,11 +496,12 @@
             });
 
             gameState.selectedFactors = newSelectedFactors;
+            checkAllFactorsFilled();
         }
 
         function resetInvestigationUI() {
             document.getElementById('clue-panel').innerHTML = `<p class="text-gray-400 italic text-center">Click on the evidence board to see available clues.</p>`;
-            document.getElementById('live-feedback-area').textContent = '';
+            document.getElementById('live-feedback-area').innerHTML = '';
             document.getElementById('interrogation-outline').innerHTML = `
                 <div class="factor-group flex items-center p-1 sm:p-2 bg-gray-800 rounded-lg">
                     <span>(</span>
@@ -530,7 +514,7 @@
                         <button class="term-control-btn text-base" onclick="removeTerm(this)">-</button>
                     </div>
                 </div>
-                <span class="my-2 md:my-0 text-2xl sm:text-3xl">*</span>
+                <span class="my-2 md:my-0 text-2xl sm:text-3xl">&times;</span>
                 <div class="factor-group flex items-center p-1 sm:p-2 bg-gray-800 rounded-lg">
                     <span>(</span>
                     <div class="terms-container flex items-center flex-wrap gap-0.5">
@@ -576,9 +560,9 @@
             if (gameState.draggedValue !== null) {
                 const value = isNaN(gameState.draggedValue) ? gameState.draggedValue : Number(gameState.draggedValue);
                 gameState.selectedFactors[zoneIndex] = value;
-                dropZone.textContent = gameState.draggedValue;
+                dropZone.innerHTML = formatExpression(gameState.draggedValue.toString());
                 gameState.draggedValue = null;
-                validateSolution();
+                checkAllFactorsFilled();
             }
         }
 
@@ -644,8 +628,8 @@
                 if (!isNaN(zoneIndex) && gameState.draggedValue !== null) {
                     const value = isNaN(gameState.draggedValue) ? gameState.draggedValue : Number(gameState.draggedValue);
                     gameState.selectedFactors[zoneIndex] = value;
-                    touchState.lastTarget.textContent = gameState.draggedValue;
-                    validateSolution();
+                    touchState.lastTarget.innerHTML = formatExpression(gameState.draggedValue.toString());
+                    checkAllFactorsFilled();
                 }
             }
 
@@ -673,11 +657,6 @@
             return Array.from(sup).map(char => superscriptMap[char] || char).join('');
         }
 
-        /**
-         * Parses an array of terms (e.g., ['x', 'y', 2]) into a standardized polynomial representation.
-         * A polynomial is represented as a Map where keys are term strings (e.g., "x:1,y:1")
-         * and values are their coefficients.
-         */
         function parseFactor(terms) {
             const poly = new Map();
             terms.forEach(term => {
@@ -687,22 +666,19 @@
                     const key = 'const';
                     poly.set(key, (poly.get(key) || 0) + term);
                 } else if (typeof term === 'string') {
-                    const match = term.match(/^(-?\d*)?([a-zA-Z])(.*)?$/);
+                    let expr = term.toString();
+                    const match = expr.match(/^(-?\d*)?([a-zA-Z])(\d+|²|³|⁴)?$/);
                     if (!match) return;
 
                     let coeffPart = match[1];
                     let variable = match[2];
-                    let powerPart = match[3] || '1';
+                    let powerPart = match[3] ? fromSuperscript(match[3]) : '1';
 
                     let coeff = 1;
                     if (coeffPart === '-') coeff = -1;
                     else if (coeffPart) coeff = parseInt(coeffPart, 10);
                     
-                    let power = 1;
-                    const normalPower = fromSuperscript(powerPart);
-                    if (normalPower && !isNaN(normalPower)) {
-                        power = parseInt(normalPower, 10);
-                    }
+                    let power = parseInt(powerPart, 10);
                     
                     const key = `${variable}:${power}`;
                     poly.set(key, (poly.get(key) || 0) + coeff);
@@ -711,9 +687,6 @@
             return poly;
         }
 
-        /**
-         * Multiplies two multivariate polynomials represented as Maps.
-         */
         function multiplyPolynomials(poly1, poly2) {
             const result = new Map();
             if (poly1.size === 0) return poly2;
@@ -724,7 +697,6 @@
                     const newCoeff = coeff1 * coeff2;
                     const newTerms = new Map();
 
-                    // Combine terms from term1
                     if (term1 !== 'const') {
                         term1.split(',').forEach(t => {
                             const [variable, power] = t.split(':');
@@ -732,7 +704,6 @@
                         });
                     }
                     
-                    // Combine terms from term2
                     if (term2 !== 'const') {
                         term2.split(',').forEach(t => {
                             const [variable, power] = t.split(':');
@@ -756,29 +727,35 @@
             return result;
         }
 
-        /**
-         * Converts a polynomial Map back into a readable string expression.
-         */
         function polyMapToString(poly) {
             if (poly.size === 0) return '0';
 
             const termStrings = [];
             const sortedTerms = Array.from(poly.entries()).sort(([keyA], [keyB]) => {
-                // Simple sort: constants last, then alphabetical
                 if (keyA === 'const') return 1;
                 if (keyB === 'const') return -1;
+                const powerA = parseInt(keyA.split(':')[1] || '0', 10);
+                const powerB = parseInt(keyB.split(':')[1] || '0', 10);
+                if (powerA !== powerB) return powerB - powerA;
                 return keyA.localeCompare(keyB);
             });
 
-            sortedTerms.forEach(([term, coeff]) => {
+            sortedTerms.forEach(([term, coeff], index) => {
                 if (coeff === 0) return;
                 
                 let termStr = '';
+                const absCoeff = Math.abs(coeff);
+                
+                if (index > 0) {
+                    termStr += coeff > 0 ? ' + ' : ' - ';
+                } else if (coeff < 0) {
+                    termStr += '-';
+                }
+
                 if (term === 'const') {
-                    termStr = Math.abs(coeff).toString();
+                    termStr += absCoeff.toString();
                 } else {
-                    const absCoeff = Math.abs(coeff);
-                    if (absCoeff !== 1 || term.length === 0) { // Show coeff if it's not 1, or if it's a constant term
+                    if (absCoeff !== 1) {
                         termStr += absCoeff;
                     }
                     term.split(',').forEach(t => {
@@ -789,12 +766,6 @@
                         }
                     });
                 }
-                
-                if (termStrings.length > 0) {
-                    termStrings.push(coeff > 0 ? ' + ' : ' - ');
-                } else if (coeff < 0) {
-                    termStrings.push('-');
-                }
                 termStrings.push(termStr);
             });
 
@@ -803,30 +774,26 @@
 
         function expressionToPolyMap(expr) {
             const poly = new Map();
-            
-            // Convert all superscripts in the expression to ^ notation first
-            let exprWithCaret = expr.replace(/([\u00B2\u00B3\u00B9\u2070-\u2079]+)/g, (match) => `^${fromSuperscript(match)}`);
-            exprWithCaret = exprWithCaret.replace(/([a-zA-Z])(?!\^)/g, '$1^1'); // Add ^1 to variables without powers
+            let exprWithCaret = expr.replace(/([a-zA-Z])([²³⁴])/g, (m, v, p) => `${v}^${fromSuperscript(p)}`)
+                                    .replace(/([a-zA-Z])(?!\^)/g, '$1^1');
 
-            // Normalize expression: remove whitespace, handle minus signs
             const normalizedExpr = exprWithCaret.replace(/\s/g, '').replace(/-/g, '+-');
             const terms = normalizedExpr.split('+').filter(t => t);
 
             terms.forEach(term => {
-                const match = term.match(/(-?\d*)?([a-zA-Z]+)(\^(\d+))?/);
+                const match = term.match(/(-?\d*\.?\d*)?([a-zA-Z]+)(?:\^(\d+))?/);
                 
-                if (match) { // Term with variables
-                    let coeff = parseInt(match[1] || '1', 10);
+                if (match) {
+                    let coeff = 1;
                     if (match[1] === '-') coeff = -1;
+                    else if (match[1]) coeff = parseFloat(match[1]);
 
                     const variables = match[2];
-                    const power = parseInt(match[4] || '1', 10);
-                    
+                    const power = parseInt(match[3] || '1', 10);
                     const key = `${variables}:${power}`;
                     poly.set(key, (poly.get(key) || 0) + coeff);
-
-                } else { // Constant term
-                    const coeff = parseInt(term, 10);
+                } else {
+                    const coeff = parseFloat(term);
                     if (!isNaN(coeff)) {
                         poly.set('const', (poly.get('const') || 0) + coeff);
                     }
@@ -835,18 +802,60 @@
             return poly;
         }
 
-        function comparePolyMaps(map1, map2) {
-            const cleanMap = (m) => new Map([...m].filter(([, v]) => v !== 0));
+        function diffPolyMaps(target, result) {
+            const diff = {
+                mismatched: [], // { term: 'x:1', targetCoeff: 5, resultCoeff: 4 }
+                missing: [],    // { term: 'x:2', targetCoeff: 1 } (in target, not in result)
+                extra: []       // { term: 'y:1', resultCoeff: 3 } (in result, not in target)
+            };
+            const allKeys = new Set([...target.keys(), ...result.keys()]);
 
-            const cleanedMap1 = cleanMap(map1);
-            const cleanedMap2 = cleanMap(map2);
+            for (const key of allKeys) {
+                const targetCoeff = target.get(key) || 0;
+                const resultCoeff = result.get(key) || 0;
 
-            if (cleanedMap1.size !== cleanedMap2.size) return false;
-            
-            for (const [key, val] of cleanedMap1) {
-                if (cleanedMap2.get(key) !== val) return false;
+                if (targetCoeff === resultCoeff) {
+                    continue;
+                }
+                if (targetCoeff !== 0 && resultCoeff !== 0) {
+                    diff.mismatched.push({ term: key, targetCoeff, resultCoeff });
+                } else if (targetCoeff !== 0 && resultCoeff === 0) {
+                    diff.missing.push({ term: key, targetCoeff });
+                } else if (targetCoeff === 0 && resultCoeff !== 0) {
+                    diff.extra.push({ term: key, resultCoeff });
+                }
             }
-            return true;
+            return diff;
+        }
+
+        function termToString(term, coeff) {
+            if (coeff === 0) return '';
+            let termStr = '';
+            const absCoeff = Math.abs(coeff);
+
+            if (term === 'const') {
+                return coeff.toString();
+            }
+            
+            if (coeff < 0) termStr += '-';
+
+            if (absCoeff !== 1) {
+                termStr += absCoeff;
+            } else if (term.length === 0) { 
+                termStr += '1';
+            }
+            
+            term.split(',').forEach(t => {
+                const [variable, power] = t.split(':');
+                termStr += variable;
+                if (power > 1) {
+                    termStr += `<sup>${power}</sup>`;
+                }
+            });
+            
+            if (termStr === '-') termStr += term.split(',')[0].split(':')[0]; 
+
+            return termStr;
         }
 
         function validateSolution() {
@@ -854,60 +863,65 @@
             const feedbackArea = document.getElementById('live-feedback-area');
             const feedbackOverlay = document.getElementById('feedback-overlay');
             
-            let isCorrect = false;
-
-            // --- Build expressions from drop zones ---
             const factorGroups = document.querySelectorAll('.factor-group');
             const factors = [];
             let globalDropZoneIndex = 0;
             
             factorGroups.forEach(group => {
                 const terms = [];
-                const dropZonesInGroup = group.querySelectorAll('.drop-zone');
-                dropZonesInGroup.forEach(zone => {
+                group.querySelectorAll('.drop-zone').forEach(() => {
                     terms.push(gameState.selectedFactors[globalDropZoneIndex]);
                     globalDropZoneIndex++;
                 });
                 factors.push(terms);
             });
 
-            // --- Perform validation ---
             if (factors.some(f => f.some(t => t === null))) {
-                feedbackArea.innerHTML = '';
+                feedbackArea.innerHTML = '<p class="text-yellow-400">Please fill all the empty slots.</p>';
+                return;
+            }
+            
+            let resultPoly;
+            try {
+                const polyFactors = factors.map(parseFactor);
+                resultPoly = polyFactors.reduce((acc, poly) => multiplyPolynomials(acc, poly), new Map([['const', 1]]));
+            } catch (e) {
+                console.error("Validation error:", e);
+                feedbackArea.innerHTML = '<p class="text-red-400">Error: Could not compute the product of your theory.</p>';
                 return;
             }
 
-            try {
-                const polyFactors = factors.map(parseFactor);
-                const resultPoly = polyFactors.reduce((acc, poly) => multiplyPolynomials(acc, poly), new Map([['const', 1]]));
-                
-                const generatedExpression = polyMapToString(resultPoly);
-                feedbackArea.innerHTML = `Your theory: ${formatExpression(generatedExpression)}`;
+            const targetPoly = expressionToPolyMap(expression);
+            const diff = diffPolyMaps(targetPoly, resultPoly);
 
-                const targetPoly = expressionToPolyMap(expression);
-                isCorrect = comparePolyMaps(resultPoly, targetPoly);
-
-            } catch (e) {
-                console.error("Validation error:", e);
-                feedbackArea.innerHTML = 'Could not compute the product of your theory.';
-                isCorrect = false;
-            }
+            let feedbackHTML = `<p>Your theory expands to: <span class="font-bold">${formatExpression(polyMapToString(resultPoly)) || '0'}</span></p>`;
             
-            feedbackArea.classList.remove('text-green-400', 'text-red-400');
-            if(isCorrect) {
-                feedbackArea.classList.add('green-400');
+            if (diff.mismatched.length === 0 && diff.missing.length === 0 && diff.extra.length === 0) {
+                feedbackHTML += '<p class="text-green-400 font-bold mt-2">That matches the evidence perfectly! Case closed.</p>';
+                feedbackArea.innerHTML = feedbackHTML;
                 feedbackOverlay.innerHTML = '✅';
                 feedbackOverlay.classList.add('show');
-                setTimeout(() => {
-                    completeCase();
-                }, 1500);
+                setTimeout(completeCase, 1500);
             } else {
-                feedbackArea.classList.add('red-400');
+                feedbackHTML += `<div class="mt-2 space-y-1">`;
+                diff.mismatched.forEach(item => {
+                    const resultTerm = termToString(item.term, item.resultCoeff);
+                    const targetTerm = termToString(item.term, item.targetCoeff);
+                    feedbackHTML += `<p><span class="text-yellow-400">Mismatched:</span> Your theory has <b class="text-red-400">${formatExpression(resultTerm)}</b>, but it should be <b class="text-green-400">${formatExpression(targetTerm)}</b>.</p>`;
+                });
+                diff.missing.forEach(item => {
+                    const targetTerm = termToString(item.term, item.targetCoeff);
+                    feedbackHTML += `<p><span class="text-red-400">Missing:</span> The evidence includes <b class="text-green-400">${formatExpression(targetTerm)}</b>, which is not in your result.</p>`;
+                });
+                diff.extra.forEach(item => {
+                    const resultTerm = termToString(item.term, item.resultCoeff);
+                    feedbackHTML += `<p><span class="text-blue-400">Extra:</span> Your result has <b class="text-red-400">${formatExpression(resultTerm)}</b>, which is not in the evidence.</p>`;
+                });
+                feedbackHTML += `</div>`;
+                feedbackArea.innerHTML = feedbackHTML;
                 feedbackOverlay.innerHTML = '❌';
                 feedbackOverlay.classList.add('show');
-                setTimeout(() => {
-                    feedbackOverlay.classList.remove('show');
-                }, 1000);
+                setTimeout(() => feedbackOverlay.classList.remove('show'), 1000);
             }
         }
 
