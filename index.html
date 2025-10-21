@@ -158,7 +158,11 @@
             <div class="w-full p-4 mb-4 bg-gray-900 rounded-lg text-center">
                 <div class="flex justify-center items-center space-x-4">
                     <p class="font-detective text-xl">Evidence Board</p>
-                    <div title="Inspect Evidence" class="inspection-tool p-2 rounded-lg text-2xl" onclick="inspectEvidence()">🔬</div>
+                    <div title="Inspect Evidence" class="inspection-tool p-2 rounded-lg" onclick="inspectEvidence()">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 transform rotate-45" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
                 </div>
                 <div id="evidence-board" class="flex justify-center items-center space-x-2 text-3xl sm:text-5xl font-bold mt-2">
                     <!-- Terms will be injected here -->
@@ -578,7 +582,7 @@
         }
 
         function resetInvestigationUI() {
-            document.getElementById('clue-panel').innerHTML = `<p class="text-gray-400 italic text-center">Click on the evidence or the inspection tool 🔬 to begin.</p>`;
+            document.getElementById('clue-panel').innerHTML = `<p class="text-gray-400 italic text-center">Click on the evidence or the inspection tool to begin.</p>`;
             document.getElementById('live-feedback-area').innerHTML = '';
             document.getElementById('interrogation-outline').innerHTML = `
                 <div class="factor-group flex items-center p-1 sm:p-2 bg-gray-800 rounded-lg">
