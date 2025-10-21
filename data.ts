@@ -1,0 +1,86 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+*/
+import type { CaseFile } from './types';
+
+export const caseFiles: CaseFile[] = [
+    {
+        id: 0,
+        title: "The Fourth Power Puzzle",
+        narrative: "A classic Sophie Germain Identity. It looks simple, but the factors are not obvious. You might need to add and subtract a term to find the pattern.",
+        expression: "x⁴ + x² + 1",
+        solution: ['x²+x+1', 'x²-x+1'],
+        clues: ['x²', 'x', '-x', '1'],
+        patternId: "sophie-germain",
+    },
+    {
+        id: 1,
+        title: "The Difference of Squares",
+        narrative: "A classic case of opposites. One is positive, one is negative. What happens when they clash?",
+        expression: "x² - y²",
+        solution: ['x-y', 'x+y'],
+        clues: ['x', 'y', '-y'],
+        patternId: "difference-of-squares",
+    },
+    {
+        id: 2,
+        title: "The Leading Coefficient",
+        narrative: "This case has a twist. The leading coefficient isn't 1. You'll need to consider factors of both the first and last terms.",
+        expression: "4x² + 7x + 3",
+        coeffs: [4, 7, 3],
+        solution: ['4x+3', 'x+1'],
+        clues: ['x', '4x', 1, 3],
+        patternId: "sum-product-ac",
+    },
+    {
+        id: 3,
+        title: "The Grouping Gambit",
+        narrative: "This case is different. We have four terms to deal with. Look for common factors between pairs.",
+        expression: "x³ + 2x² + 3x + 6",
+        coeffs: [1, 2, 3, 6],
+        solution: ['x+2', 'x²+3'],
+        clues: ['x', 'x²', '2', '3'],
+        patternId: "grouping",
+    },
+    {
+        id: 4,
+        title: "The Midtown Collision",
+        narrative: "A simple collision at the corner of 5th and 6th Avenue. Looks routine, but let's see what the evidence tells us.",
+        expression: "x² + 5x + 6",
+        coeffs: [1, 5, 6],
+        solution: ['x+2', 'x+3'],
+        clues: ['x', 2, 3],
+        patternId: "sum-product",
+    },
+    {
+        id: 5,
+        title: "The Negative Force",
+        narrative: "This one's messy. The collision involved a negative element. Be careful, Detective.",
+        expression: "x² - 2x - 15",
+        coeffs: [1, -2, -15],
+        solution: ['x+3', 'x-5'],
+        clues: ['x', 3, -5],
+        patternId: "sum-product",
+    },
+    {
+        id: 6,
+        title: "The Double Negative",
+        narrative: "Two negatives were involved here. They say two negatives make a positive, let's see if that's true.",
+        expression: "x² - 9x + 20",
+        coeffs: [1, -9, 20],
+        solution: ['x-4', 'x-5'],
+        clues: ['x', -4, -5],
+        patternId: "sum-product",
+    },
+    {
+        id: 7,
+        title: "The Downtown Derby",
+        narrative: "This one happened fast. The numbers are a bit bigger, but the method should be the same.",
+        expression: "x² + 7x + 12",
+        coeffs: [1, 7, 12],
+        solution: ['x+3', 'x+4'],
+        clues: ['x', 3, 4],
+        patternId: "sum-product",
+    }
+];
