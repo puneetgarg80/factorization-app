@@ -6,6 +6,15 @@ import type { CaseFile } from './types';
 
 export const caseFiles: CaseFile[] = [
     {
+        id: 8,
+        title: "The Three-Variable Conspiracy",
+        narrative: "A complex scene, Detective. Three variables are involved, creating a web of intrigue. Rearrange the evidence to group the suspects, and you might just uncover a familiar pattern in disguise.",
+        expression: "x² - y² - 3z² - 2xz + 4yz",
+        solution: ['x-y+z', 'x+y-3z'],
+        clues: ['x', 'y', '-y', 'z', '-3z'],
+        patternId: "grouping-and-difference-of-squares",
+    },
+    {
         id: 0,
         title: "The Fourth Power Puzzle",
         narrative: "A classic Sophie Germain Identity. It looks simple, but the factors are not obvious. You might need to add and subtract a term to find the pattern.",

@@ -20,19 +20,29 @@ export function parseFactor(terms: (string | number | null)[]): PolyMap {
             poly.set(key, (poly.get(key) || 0) + term);
         } else if (typeof term === 'string') {
             const expr = term.toString();
-            const match = expr.match(/^(-?\d*)?([a-zA-Z])(\^(\d)|²|³|⁴)?$/);
+            // Regex updated to handle multi-digit superscripts and caret notation
+            const match = expr.match(/^(-?\d*)?([a-zA-Z])(?:([⁰¹²³⁴⁵⁶⁷⁸⁹]+)|\^(\d+))?$/);
             if (!match) return;
-            
-            let coeffPart = match[1];
-            let variable = match[2];
-            let powerPart = match[3] ? (match[4] || fromSuperscript(match[3]).toString()) : '1';
+
+            const coeffPart = match[1];
+            const variable = match[2];
+            const sup = match[3];
+            const caretPow = match[4];
 
             let coeff = 1;
-            if (coeffPart === '-') coeff = -1;
-            else if (coeffPart) coeff = parseInt(coeffPart, 10);
-            
-            let power = parseInt(powerPart, 10);
-            
+            if (coeffPart === '-') {
+                coeff = -1;
+            } else if (coeffPart) {
+                coeff = parseInt(coeffPart, 10);
+            }
+
+            let power = 1;
+            if (caretPow) {
+                power = parseInt(caretPow, 10);
+            } else if (sup) {
+                power = fromSuperscript(sup);
+            }
+
             const key = `${variable}:${power}`;
             poly.set(key, (poly.get(key) || 0) + coeff);
         }
@@ -142,29 +152,56 @@ export function polyMapToString(poly: PolyMap): string {
  */
 export function expressionToPolyMap(expr: string): PolyMap {
     const poly: PolyMap = new Map();
-    let exprWithCaret = expr.replace(/([a-zA-Z])([²³⁴])/g, (_, v, p) => `${v}^${fromSuperscript(p)}`)
-                            .replace(/([a-zA-Z])(?!\^)/g, '$1^1');
-
-    const normalizedExpr = exprWithCaret.replace(/\s/g, '').replace(/-/g, '+-');
+    // Normalize expression: add explicit '+' for negatives, remove whitespace, and remove leading + if it exists.
+    const normalizedExpr = expr.replace(/\s/g, '').replace(/-/g, '+-').replace(/^\+/, '');
     const terms = normalizedExpr.split('+').filter(t => t);
 
     terms.forEach(term => {
-        const match = term.match(/(-?\d*\.?\d*)?([a-zA-Z]+)(?:\^(\d+))?/);
-        
-        if (match) {
-            let coeff = 1;
-            if (match[1] === '-') coeff = -1;
-            else if (match[1]) coeff = parseFloat(match[1]);
+        // Match coefficient part at the beginning. Handles integers, decimals, and leading signs.
+        const coeffMatch = term.match(/^(-?\d*\.?\d*)/);
+        let coeff = 1;
+        let remainingTerm = term;
 
-            const variables = match[2];
-            const power = parseInt(match[3] || '1', 10);
-            const key = `${variables}:${power}`;
-            poly.set(key, (poly.get(key) || 0) + coeff);
-        } else {
-            const coeff = parseFloat(term);
-            if (!isNaN(coeff)) {
-                poly.set('const', (poly.get('const') || 0) + coeff);
+        if (coeffMatch && coeffMatch[0]) {
+            const coeffStr = coeffMatch[0];
+            if (coeffStr === '-') {
+                coeff = -1;
+            } else if (coeffStr === '+') {
+                 coeff = 1; // Should not happen with current normalization but safe to have
+            } else {
+                coeff = parseFloat(coeffStr);
             }
+            remainingTerm = term.substring(coeffStr.length);
+        }
+
+        // Find all variables and their powers in the rest of the term
+        const varMatches = [...remainingTerm.matchAll(/([a-zA-Z])(?:([⁰¹²³⁴⁵⁶⁷⁸⁹]+)|\^(\d+))?/g)];
+        
+        if (varMatches.length > 0) {
+            const termVars = new Map<string, number>();
+            for (const match of varMatches) {
+                const variable = match[1];
+                const sup = match[2];
+                const caretPow = match[3];
+                let power = 1;
+
+                if (caretPow) {
+                    power = parseInt(caretPow, 10);
+                } else if (sup) {
+                    power = fromSuperscript(sup);
+                }
+                termVars.set(variable, (termVars.get(variable) || 0) + power);
+            }
+            
+            // Create a sorted, comma-separated key for the term, e.g., 'x:2,y:1'
+            const key = Array.from(termVars.entries())
+                .sort(([varA], [varB]) => varA.localeCompare(varB))
+                .map(([variable, power]) => `${variable}:${power}`)
+                .join(',');
+            poly.set(key, (poly.get(key) || 0) + coeff);
+        } else if (!isNaN(parseFloat(term))) {
+            // It's a constant term
+            poly.set('const', (poly.get('const') || 0) + parseFloat(term));
         }
     });
     return poly;

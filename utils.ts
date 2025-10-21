@@ -10,7 +10,12 @@
  */
 export function formatExpression(expr: string): string {
     if (!expr) return '';
-    return expr.replace(/x\^(\d)/g, "x<sup>$1</sup>").replace(/x(\d)/g, "x<sup>$1</sup>").replace(/x\²/g, "x²").replace(/x\³/g, "x³").replace(/x\⁴/g, "x⁴").replace(/\+/g, " + ").replace(/-/g, " - ");
+    // Handles multi-digit exponents with carets (e.g., x^12) for any variable, converting them to <sup> tags for display.
+    // It also preserves the original simple spacing logic for operators.
+    return expr
+        .replace(/([a-zA-Z])\^(\d+)/g, "$1<sup>$2</sup>")
+        .replace(/\+/g, " + ")
+        .replace(/-/g, " - ");
 }
 
 /**
@@ -38,13 +43,16 @@ export function getPrimeFactors(num: number): number[] {
 }
 
 /**
- * Converts a superscript character to a number.
- * @param sup The superscript character.
- * @returns The corresponding number.
+ * Converts a string of superscript characters to a number.
+ * @param sup The superscript string (e.g., '²³⁴').
+ * @returns The corresponding number (e.g., 234).
  */
 export function fromSuperscript(sup: string): number {
-    const superscriptMap: Record<string, number> = { '⁰': 0, '¹': 1, '²': 2, '³': 3, '⁴': 4, '⁵': 5, '⁶': 6, '⁷': 7, '⁸': 8, '⁹': 9 };
-    return superscriptMap[sup] || 1;
+    const superscriptMap: Record<string, string> = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9' };
+    if (!sup) return 1;
+    const digitString = Array.from(sup).map(char => superscriptMap[char]).filter(Boolean).join('');
+    if (digitString === '') return 1;
+    return parseInt(digitString, 10);
 }
 
 /**
